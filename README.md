@@ -2,6 +2,14 @@
 
 # Project Documentation
 
+## Groupe 2 : 
+
+- AMEDRO Louis (Osiris-Sio)
+
+- HERBAUX Jules (Lirei159)
+
+- PACE--BOULNOIS Lysandre (NovaChocolat)
+
 ## Installation
 
 
