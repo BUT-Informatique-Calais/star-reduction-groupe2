@@ -36,13 +36,9 @@ if data.ndim == 3:
     # Save the data as a png image (no cmap for color images)
     plt.imsave("./results/original.png", data_normalized)
 
-    # Normalisation globale pour préserver les couleurs (balance des blancs)
-    # OpenCV utilise BGR ou RGB, ici on garde les canaux tels quels mais normalisés ensemble
+    # Normalisation globale pour préserver les couleurs
+    image = ((data - data.min()) / (data.max() - data.min()) * 255).astype("uint8")
 
-    image = (
-        (data - data.min()) / (data.max() - data.min()) * 255
-    ).astype("uint8")
-    
     # Conversion RGB vers BGR pour OpenCV
     image = cv.cvtColor(image, cv.COLOR_RGB2BGR)
 else:
@@ -52,77 +48,47 @@ else:
     # Convert to uint8 for OpenCV
     image = ((data - data.min()) / (data.max() - data.min()) * 255).astype("uint8")
 
-
-
-# Définition du noyau pour l'érosion
-# Une taille de 5x5 a été choisie pour une réduction plus marquée des étoiles
+# Define a kernel for erosion
 kernel = np.ones((5, 5), np.uint8)
-# Application de l'érosion (Phase 1)
+# Perform erosion
 eroded_image = cv.erode(image, kernel, iterations=1)
 
-# Étape A : Création du masque d’étoiles (Phase 2)
-# Conversion en niveaux de gris pour la détection du masque
+
+###### Phase 2 :
+
+
+### Étape A : Création du masque d’étoiles
 if len(image.shape) == 3:
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
 else:
     gray = image
 
-# Utilisation d'un seuillage adaptatif pour isoler les étoiles
-# Le but est d'obtenir un masque binaire : blanc (255) pour les étoiles, noir (0) pour le fond.
-# Paramètres :
-# - 255 : Valeur max (blanc)
-# - ADAPTIVE_THRESH_GAUSSIAN_C : Méthode de calcul du seuil local
-# - THRESH_BINARY : Inversion non nécessaire ici grâce à la correction de la constante
-# - 11 : Taille du voisinage
-# - -2 : Constante "C". Une valeur négative signifie que le seuil est SUPERIEUR à la moyenne locale.
-#        Cela permet de ne capturer que les pixels nettement plus brillants que le fond (les étoiles).
-#        -2 est plus sensible que -20, capturant ainsi les étoiles faibles.
 mask = cv.adaptiveThreshold(
-    gray, 
-    255, 
-    cv.ADAPTIVE_THRESH_GAUSSIAN_C, 
-    cv.THRESH_BINARY, 
-    11, 
-    -2
+    gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, -20
 )
 
-# Étape B : Réduction localisée (Phase 2)
-# 1. Nous avons l'image érodée (eroded_image) et l'image originale (image/Ioriginal).
-# 2. Adoucissement du masque pour des transitions naturelles (évite les artefacts de coupure)
+### Étape B : Réduction localisée
 mask_blurred = cv.GaussianBlur(mask, (5, 5), 0)
 
-# Normaliser le masque entre 0 et 1 pour les calculs (float)
-M = mask_blurred.astype(float) / 255.0
+# Utilisation de float32 pour éviter les erreurs de profondeur d'image
+M = mask_blurred.astype(np.float32) / 255.0
 
-# Si l'image est en couleur, nous avons besoin que le masque ait 3 canaux pour la multiplication
 if len(image.shape) == 3:
     M = np.stack([M, M, M], axis=2)
 
-# Convertir les images en float pour le calcul
-Ioriginal = image.astype(float)
-Ierode = eroded_image.astype(float)
+# Conversion explicite en float32 pour le calcul
+Ioriginal = image.astype(np.float32)
+Ierode = eroded_image.astype(np.float32)
 
-# 3. Calcul de l'image finale
-# Formule : Ifinal = (M * Ierode) + ((1 - M) * Ioriginal)
+# Calcul de l'image finale
 final_image_float = (M * Ierode) + ((1.0 - M) * Ioriginal)
 
+# Reconversion en uint8 AVANT la sauvegarde pour éviter les Warnings
+final_image = np.clip(final_image_float, 0, 255).astype(np.uint8)
 
-# Reconversion en uint8
-final_image = np.clip(final_image_float, 0, 255).astype("uint8")
-
-# Ajout d'une étape de netteté (Sharpening) pour compenser le flou
-# Création d'un noyau de convolution pour accentuer les détails
-sharpen_kernel = np.array([[0, -1, 0], 
-                           [-1, 5, -1], 
-                           [0, -1, 0]])
-# Application du filtre de netteté sur l'image finale
-final_image = cv.filter2D(final_image, -1, sharpen_kernel)
-
-# Save the eroded image
+### Sauvegardes finales
 cv.imwrite("./results/eroded.png", eroded_image)
-# Sauvegarde de l'image finale avec réduction localisée
 cv.imwrite("./results/final_phase2.png", final_image)
-# Sauvegarde du masque pour vérification
 cv.imwrite("./results/star_mask.png", mask)
 
 # Close the file
