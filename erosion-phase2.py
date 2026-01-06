@@ -10,9 +10,25 @@ import matplotlib.pyplot as plt
 import cv2 as cv
 import numpy as np
 
+# =================================================================
+# VARIABLES DE CONFIGURATION
+# =================================================================
+FITS_FILE = "./examples/m31_star.fits"
+
+# Paramètres Érosion
+EROSION_SIZE = 3  # Taille du noyau (3x3, 5x5, etc.)
+EROSION_ITER = 4  # Nombre de fois qu'on érode (plus = étoiles plus petites)
+
+# Paramètres Masque (étape A)
+MASK_BLOCK_SIZE = 21  # Taille du voisinage (doit être impair : 11, 21, 31...)
+MASK_C_VALUE = -10  # Constante C (plus c'est bas, plus on détecte d'étoiles)
+
+# Paramètres Flou (étape B)
+BLUR_SIZE = 15  # Douceur de la transition (doit être impair : 5, 9, 15...)
+# =================================================================
+
 # Open and read the FITS file
-fits_file = "./examples/m31_star.fits"
-hdul = fits.open(fits_file)
+hdul = fits.open(FITS_FILE)
 
 # Display information about the file
 hdul.info()
@@ -49,9 +65,9 @@ else:
     image = ((data - data.min()) / (data.max() - data.min()) * 255).astype("uint8")
 
 # Define a kernel for erosion
-kernel = np.ones((5, 5), np.uint8)
+kernel = np.ones((EROSION_SIZE, EROSION_SIZE), np.uint8)
 # Perform erosion
-eroded_image = cv.erode(image, kernel, iterations=1)
+eroded_image = cv.erode(image, kernel, iterations=EROSION_ITER)
 
 
 ###### Phase 2 :
@@ -63,12 +79,19 @@ if len(image.shape) == 3:
 else:
     gray = image
 
+# Seuil
 mask = cv.adaptiveThreshold(
-    gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, -20
+    gray,
+    255,
+    cv.ADAPTIVE_THRESH_GAUSSIAN_C,
+    cv.THRESH_BINARY,
+    MASK_BLOCK_SIZE,  # la taille du voisinage (ex: 21x21)
+    MASK_C_VALUE,  # Garde uniquement les pixels nettement plus brillants que la moyenne
 )
 
 ### Étape B : Réduction localisée
-mask_blurred = cv.GaussianBlur(mask, (5, 5), 0)
+# Masque flouté réalisé avec le noyau de Gauss
+mask_blurred = cv.GaussianBlur(mask, (BLUR_SIZE, BLUR_SIZE), 0)
 
 # Utilisation de float32 pour éviter les erreurs de profondeur d'image
 M = mask_blurred.astype(np.float32) / 255.0
