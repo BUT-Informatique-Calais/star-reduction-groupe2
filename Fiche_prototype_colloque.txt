@@ -1,0 +1,30 @@
+Recherches :
+
+Piste personnelle (slide 2) :
+
+- Recherches Threshold, substitut à DAOStarFinder, seuils etc... via la documentation OpenCV (à approfondir)
+
+Solutions aux problèmes (slide 3/4) :
+
+- Savoir équilibrer les paramètres, voir pour l'érosion : soit être flou sans étoile, soit être nette avec quelques étoiles restantes
+	-> Rechercher meilleure méthode pour combiner netteté et aucune étoile (à faire)
+
+- Télétravail (collègue + mercredi) car on préfère travailler en présentiel
+	-> Adaptation 
+
+- Manque de connaissance concernant bibliothèque photutils (peut-être se renseigner si ça pose problème)
+
+- Résultats (slide 5/6) :
+
+- 4 images à afficher avec noms :
+	* Original
+	* Eroded
+	* Star mask
+	* Final
+
+- Interface utilisateur (pyqt6)
+
+- Commentaire et readme en anglais
+
+
+
