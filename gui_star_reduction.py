@@ -34,9 +34,9 @@ class StarModel:
                 if data.shape[0] == 3:
                     data = np.transpose(data, (1, 2, 0))
                 
-                # Normalisation globale pour préserver les couleurs
+                # Global normalization to [0, 255] for OpenCV
                 self.original_image = ((data - data.min()) / (data.max() - data.min()) * 255).astype("uint8")
-                # Conversion RGB vers BGR pour OpenCV
+                # Conversion RGB to BGR for OpenCV
                 self.original_image = cv.cvtColor(self.original_image, cv.COLOR_RGB2BGR)
             else:
                 # Convert to uint8 for OpenCV
@@ -70,32 +70,32 @@ class StarModel:
 
             ###### Phase 2 :
 
-            ### Étape A : Création du masque d’étoiles
+            ### Step A: Create star mask
             mask = cv.adaptiveThreshold(
                 self.gray_image, 
                 255, 
                 cv.ADAPTIVE_THRESH_GAUSSIAN_C, 
                 cv.THRESH_BINARY, 
                 block_size, 
-                c_val # Garde uniquement les pixels nettement plus brillants que la moyenne
+                c_val # Keep only pixels significantly brighter than the average
             )
 
-            ### Étape B : Réduction localisée
-            # Masque flouté réalisé avec le noyau de Gauss
+            ### Step B: Localized reduction
+            # Blurred mask created with Gaussian kernel
             mask_blurred = cv.GaussianBlur(mask, (k_blur, k_blur), 0)
 
-            # Utilisation de float32 pour éviter les erreurs de profondeur d'image
+            # Use float32 to avoid image depth errors
             M = mask_blurred.astype(np.float32) / 255.0
             if len(self.original_image.shape) == 3:
                 M = np.stack([M, M, M], axis=2)
 
-            # Conversion explicite en float32 pour le calcul
+            # Explicit conversion to float32 for calculation
             Ioriginal = self.original_image.astype(np.float32)
             Ierode = eroded_image.astype(np.float32)
 
-            # Calcul de l'image finale
+            # Calculation of the final image
             final_image_float = (M * Ierode) + ((1.0 - M) * Ioriginal)
-            # Reconversion en uint8 AVANT la sauvegarde pour éviter les Warnings
+            # Conversion back to uint8 BEFORE saving to avoid Warnings
             final_image = np.clip(final_image_float, 0, 255).astype(np.uint8)
 
             return final_image
@@ -136,6 +136,7 @@ class StarView(QMainWindow):
 
         self.create_controls()
 
+    # Create sliders and labels for parameters
     def create_controls(self):
         self.add_control("Taille du noyau d'érosion (impair)", 3, 51, 3, 2, "erosion_kernel")
         self.add_control("Itérations d'érosion", 1, 30, 4, 1, "erosion_iter")
@@ -145,6 +146,7 @@ class StarView(QMainWindow):
         
         self.controls_layout.addStretch()
 
+    # Add a single control (label + slider)
     def add_control(self, label_text, min_val, max_val, default_val, step, key):
         layout = QVBoxLayout()
         label = QLabel(f"{label_text}: {default_val}")
