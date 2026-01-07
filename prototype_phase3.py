@@ -6,21 +6,21 @@
 # - PACE--BOULNOIS Lysandre (NovaChocolat)
 #
 # =========================================================================================
-# Résumé des méthodes utilisées :
+# Used methods :
 #
-# 1. SEUILLAGE ADAPTATIF (cv.adaptiveThreshold) : Détection locale des étoiles, efficace
-#    même sur les zones lumineuses comme le coeur de la galaxie.
+# 1. ADAPTATIVE THRESHOLD (cv.adaptiveThreshold) : stars local detection, efficient
+#    even on light areas like galaxies core.
 #
-# 2. OPENING MORPHOLOGIQUE (cv.morphologyEx) : Nettoyage du masque pour supprimer le bruit
-#    numérique (pixels isolés) avant le traitement.
+# 2. MORPHOLOGICAL OPENING (cv.morphologyEx) : mask cleaning to delete numeric
+#    noise (isolated pixels) before treatment.
 #
-# 3. DILATATION (cv.dilate) : Élargissement du masque pour couvrir les halos colorés.
+# 3. DILATION (cv.dilate) : mask expansion to cover colored halos.
 #
-# 4. INPAINTING (cv.inpaint) : Reconstruction intelligente des zones masquées en utilisant
-#    les textures environnantes (fond du ciel / galaxie).
+# 4. INPAINTING (cv.inpaint) : Smart reconstruction of masked zones to use
+#    the surroundings (sky / galaxy).
 #
-# 5. ALPHA BLENDING (Fusion) : Mélange pondéré pour réduire la luminosité des étoiles
-#    sans les supprimer totalement dans l'image finale.
+# 5. ALPHA BLENDING (Fusion) : weighted mix to lower the stars brightness
+#    without deleting the full image.
 # =========================================================================================
 
 from astropy.io import fits
@@ -30,97 +30,97 @@ import numpy as np
 import os
 
 # =================================================================
-# VARIABLES DE CONFIGURATION
+# CONFIGURATION VARIABLES
 # =================================================================
 FITS_FILE = "examples/m31_star.fits"
 
-# Paramètres Érosion préventive (affaiblit les pics de lumière)
-IMAGE_EROSION_SIZE = 3  # Zone de 3x3
-IMAGE_EROSION_ITER = 1  # Itération
+# Preventive erosion settings (lower peaks of light)
+IMAGE_EROSION_SIZE = 3  # 3x3 zone
+IMAGE_EROSION_ITER = 1  # Iteration
 
-# Paramètres Masque (Détection) :
+# Mask settings (Detection) :
 MASK_BLOCK = 31
-MASK_C = -2  # Sensibilité élevée pour capturer les étoiles faibles
-OPENING_KERNEL_SIZE = 3  # Nettoyage du masque
-MASK_DILATE_ITER = 3  # Couverture des halos oranges/blancs
+MASK_C = -2  # High sensitivity to catch weaker stars
+OPENING_KERNEL_SIZE = 3  # Mask cleaning
+MASK_DILATE_ITER = 3  # Orange/white halos cover
 
-# Paramètres Inpainting & Rendu Final :
+# Inpainting & Final Rendering settings :
 INPAINT_RADIUS = 5  # Rayon de reconstruction
-REDUCTION_ALPHA = 0.6  # Intensité de la réduction (0.6 = étoiles atténuées de 60%)
-BLUR_SIZE = 15  # Flou de transition pour la fusion
+REDUCTION_ALPHA = 0.6  # Reduction intensity (0.6 = 60% star reduction)
+BLUR_SIZE = 15  # Transition blur (for fusion)
 # =================================================================
 
-# 1. Création du dossier de sortie
+# 1. Creating output directory
 if not os.path.exists("./results"):
     os.makedirs("./results")
 
-# 2. Ouverture et lecture du fichier FITS
+# 2. Opening and reading FITS file
 hdul = fits.open(FITS_FILE)
 data = hdul[0].data
 
-# 3. Préparation et sauvegarde de l'image ORIGINAL
-# Normalisation des données FITS (0.0 à 1.0)
+# 3. Preparation and save ORIGINAL image
+# Normalization of FITS sata (0.0 to 1.0)
 data_norm = (data - data.min()) / (data.max() - data.min())
 
 if data.ndim == 3:
-    if data.shape[0] == 3:  # Ajustement des axes si nécessaire
+    if data.shape[0] == 3:  # adjusting axes if needed
         data_norm = np.transpose(data_norm, (1, 2, 0))
     plt.imsave("./results/original.png", data_norm)
-    # Conversion en uint8 BGR pour OpenCV
+    # Conversion to uint8 BGR for OpenCV
     image = (data_norm * 255).astype("uint8")
     image = cv.cvtColor(image, cv.COLOR_RGB2BGR)
 else:
     plt.imsave("./results/original.png", data_norm, cmap="gray")
     image = (data_norm * 255).astype("uint8")
 
-##### Phase 1 : Érosion de l'image complète
-# On réduit légèrement l'intensité de tous les points brillants
+##### Phase 1 : Full image erosion
+# We slightly lower all sparkly points intensity
 kernel_img = np.ones((IMAGE_EROSION_SIZE, IMAGE_EROSION_SIZE), np.uint8)
 image_eroded_step1 = cv.erode(image, kernel_img, iterations=IMAGE_EROSION_ITER)
 
-## étape A : Création et nettoyage du masque d'étoiles
+## step A : Creating and cleaning the star mask
 gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY) if image.ndim == 3 else image
 mask = cv.adaptiveThreshold(
     gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, MASK_BLOCK, MASK_C
 )
 
-# Opening pour supprimer le bruit parasite du masque
+# Opening to delete the mask parasital noise
 kernel_m = np.ones((OPENING_KERNEL_SIZE, OPENING_KERNEL_SIZE), np.uint8)
 mask_cleaned = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel_m)
 
-# Dilatation pour englober les halos autour des étoiles
+# Dilating to encompass halos aorund the stars
 mask_dilated = cv.dilate(mask_cleaned, kernel_m, iterations=MASK_DILATE_ITER)
 
-#### PHASE 2 : Inpainting (Restauration pour l'image ERODED)
-# Création d'une image où les étoiles sont totalement supprimées
+#### PHASE 2 : Inpainting (Restoration for the ERODED image)
+# Creating an image where stars are fully deleted
 print("Calcul de l'Inpainting...")
 eroded_final = cv.inpaint(
     image_eroded_step1, mask_dilated, INPAINT_RADIUS, cv.INPAINT_TELEA
 )
 
-# Sauvegarde du résultat intermédiaire (Zéro étoiles)
+# Sauving intermediate results (0 stars)
 cv.imwrite("./results/eroded.png", eroded_final)
 
-##### Phase 3 : Fusion Finale (Alpha Blending pour réduction)
-# Adoucissement des bords du masque pour une fusion naturelle
+##### Phase 3 : Final Fusion (Alpha Blending for reduction)
+# Mask border softening for a natural fusion
 mask_blurred = cv.GaussianBlur(mask_dilated, (BLUR_SIZE, BLUR_SIZE), 0)
 M = mask_blurred.astype(np.float32) / 255.0
 
 if image.ndim == 3:
     M = np.stack([M] * 3, axis=-1)
 
-# Passage en flottant pour les calculs de fusion
+# Transition to float for fusion calculation
 Ioriginal = image.astype(np.float32)
 Ieroded = eroded_final.astype(np.float32)
 
-# Application de la réduction (Compromis entre l'original et le vide)
-# Formule : M * Force * Image_Vide + (1 - M * Force) * Image_Originale
+# Reduction application (Compromise between the original and the empty)
+# Formula : M * strenght * Empty_Image + (1 - M * Strenght) * Beginning_Image
 final_image_float = (M * REDUCTION_ALPHA * Ieroded) + (
     1.0 - (M * REDUCTION_ALPHA)
 ) * Ioriginal
 final_image = np.clip(final_image_float, 0, 255).astype(np.uint8)
 
-# 4. Sauvegardes finales des résultats
+# 4. Results final saving
 cv.imwrite("./results/star_mask.png", mask_dilated)
 cv.imwrite("./results/final_phase3.png", final_image)
 
