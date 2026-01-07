@@ -1,26 +1,43 @@
 Recherches :
 
-Piste personnelle (slide 2) :
+* Piste personnelle (slide 2) :
 
-- Recherches Threshold, substitut à DAOStarFinder, seuils etc... via la documentation OpenCV (à approfondir)
+- Recherches Threshold, substitut à DAOStarFinder, seuils etc... via la documentation OpenCV 
+Threshold -> set un seuil entre 0 et 255, pour chaque pixel : analyse si sa valeur est supérieure ou inférieure au seuil. Inférieure : pixel = 0 et supérieure = 255. Pas la meilleure utilisation dans notre cas… Mais : Adaptative Threshold intéressant. 
+Utilisation de l'adaptative Threshold, analyse les pixels AUTOUR du pixel en question, ce qui permet une meilleure précision et d'atténuer l'éclat des étoiles. On fixe le rayon qui vérifie les pixels autour du pixel à l'aide du noyau Gaussien.
 
-Solutions aux problèmes (slide 3/4) :
+- Recherches Opening, opening équivaut à un dilating après un eroding -> opening(…) <=> dilating(eroding(…)). Opening permet d'obtenir une image starless bien plus propre et sans étoile apparente et nette. 
+"Useful for removing small objects (it is assumed that the objects are bright on a dark foreground)" = utile pour retirer des petits objets (implique que les objets soient clairs dans un fond sombre) -> exactement la situation des étoiles trop brillantes dans une photo.
+
+- Recherches Astrometry.net, utile pour faire un masque d'étoile bon car utilise un algorithme et une base de donnée pour identifier les étoiles présentes dans une photo. Permet donc de les isoler précisément et donc d'obtenir un masque proche de la réalité.
+s'utilise avec Linux (ou Windows WSL) et c'est une API.  
+
+* Problèmes/Solutions (slide 3/4) :
 
 - Savoir équilibrer les paramètres, voir pour l'érosion : soit être flou sans étoile, soit être nette avec quelques étoiles restantes
-	-> Rechercher meilleure méthode pour combiner netteté et aucune étoile (à faire)
+	-> Rechercher meilleure méthode pour combiner netteté et aucune étoile (Opening dans OpenCV)
 
 - Télétravail (collègue + mercredi) car on préfère travailler en présentiel
 	-> Adaptation 
 
 - Manque de connaissance concernant bibliothèque photutils (peut-être se renseigner si ça pose problème)
 
-- Résultats (slide 5/6) :
+- Opening donne un star masque ne contenant pas chaque étoile… uniquement celles bien visibles.
+	-> Astrometry.net qui doit donner un masque meilleur
+
+- Voir possibilité d'afficher image starless avec Opening ET star mask avec API astrometry. Pour avoir les meilleurs affichages en même temps au niveau de l'image starless et le star mask.
+
+* Résultats (slide 5/6) :
 
 - 4 images à afficher avec noms :
 	* Original
-	* Eroded
+	* Eroded (starless)
 	* Star mask
 	* Final
+
+- Résultats avec l'opening (principalement l'image starless)
+
+- Résultats avec l'API d'astrometry.net (principalement l'image star mask)
 
 - Interface utilisateur (pyqt6)
 
