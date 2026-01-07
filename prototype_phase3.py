@@ -4,6 +4,24 @@
 # - AMEDRO Louis (Osiris-Sio)
 # - HERBAUX Jules (Lirei159)
 # - PACE--BOULNOIS Lysandre (NovaChocolat)
+#
+# =========================================================================================
+# Résumé des méthodes utilisées :
+#
+# 1. SEUILLAGE ADAPTATIF (cv.adaptiveThreshold) : Détection locale des étoiles, efficace
+#    même sur les zones lumineuses comme le coeur de la galaxie.
+#
+# 2. OPENING MORPHOLOGIQUE (cv.morphologyEx) : Nettoyage du masque pour supprimer le bruit
+#    numérique (pixels isolés) avant le traitement.
+#
+# 3. DILATATION (cv.dilate) : Élargissement du masque pour couvrir les halos colorés.
+#
+# 4. INPAINTING (cv.inpaint) : Reconstruction intelligente des zones masquées en utilisant
+#    les textures environnantes (fond du ciel / galaxie).
+#
+# 5. ALPHA BLENDING (Fusion) : Mélange pondéré pour réduire la luminosité des étoiles
+#    sans les supprimer totalement dans l'image finale.
+# =========================================================================================
 
 from astropy.io import fits
 import matplotlib.pyplot as plt
@@ -11,94 +29,100 @@ import cv2 as cv
 import numpy as np
 import os
 
-# =========================================================================================
-# résumé des méthodes utilisées :
-# 1. SEUILLAGE ADAPTATIF (cv.adaptiveThreshold) : Détecte les étoiles en calculant un seuil
-#    local, permettant d'isoler les points brillants même sur le fond lumineux de la galaxie.
-#
-# 2. DILATATION MORPHOLOGIQUE (cv.dilate) : Élargit les zones du masque pour englober
-#    totalement les halos (souvent oranges/jaunes) qui entourent les coeurs d'étoiles.
-#
-# 3. RESTAURATION PAR INPAINTING (cv.INPAINT_TELEA) : Reconstruit l'image "eroded" en
-#    remplaçant les étoiles par les textures de la galaxie environnante (méthode de Telea).
-#
-# 4. MÉLANGE ALPHA FLOU (Alpha Blending) : Fusionne l'original et la version restaurée
-#    via un masque flouté (GaussianBlur) pour garantir des transitions invisibles.
-# =========================================================================================
-
 # =================================================================
 # VARIABLES DE CONFIGURATION
 # =================================================================
-FITS_FILE = "./examples/m31_star.fits"
+FITS_FILE = "examples/m31_star.fits"
 
-# Paramètres de détection (Masque)
-MASK_BLOCK = 31  # Voisinage large pour bien englober l'étoile
-MASK_C = -5  # Sensibilité stricte pour ne prendre que les étoiles
-MASK_DILATE_ITER = 1  # Augmenter à 3 ou 4 pour couvrir tout le halo des étoiles
+# Paramètres Érosion préventive (affaiblit les pics de lumière)
+IMAGE_EROSION_SIZE = 3  # Zone de 3x3
+IMAGE_EROSION_ITER = 1  # Itération
 
-# Paramètres d'Inpainting (La nouvelle méthode "magique")
-INPAINT_RADIUS = 10  # Rayon de reconstruction autour de l'étoile
+# Paramètres Masque (Détection) :
+MASK_BLOCK = 31
+MASK_C = -2  # Sensibilité élevée pour capturer les étoiles faibles
+OPENING_KERNEL_SIZE = 3  # Nettoyage du masque
+MASK_DILATE_ITER = 3  # Couverture des halos oranges/blancs
 
-# Paramètres de flou pour la fusion finale (Phase 2/3)
-BLUR_SIZE = 15
+# Paramètres Inpainting & Rendu Final :
+INPAINT_RADIUS = 5  # Rayon de reconstruction
+REDUCTION_ALPHA = 0.6  # Intensité de la réduction (0.6 = étoiles atténuées de 60%)
+BLUR_SIZE = 15  # Flou de transition pour la fusion
 # =================================================================
 
+# 1. Création du dossier de sortie
 if not os.path.exists("./results"):
     os.makedirs("./results")
 
+# 2. Ouverture et lecture du fichier FITS
 hdul = fits.open(FITS_FILE)
 data = hdul[0].data
 
-# Préparation de l'image
+# 3. Préparation et sauvegarde de l'image ORIGINAL
+# Normalisation des données FITS (0.0 à 1.0)
+data_norm = (data - data.min()) / (data.max() - data.min())
+
 if data.ndim == 3:
-    if data.shape[0] == 3:
-        data = np.transpose(data, (1, 2, 0))
-    image = ((data - data.min()) / (data.max() - data.min()) * 255).astype("uint8")
+    if data.shape[0] == 3:  # Ajustement des axes si nécessaire
+        data_norm = np.transpose(data_norm, (1, 2, 0))
+    plt.imsave("./results/original.png", data_norm)
+    # Conversion en uint8 BGR pour OpenCV
+    image = (data_norm * 255).astype("uint8")
     image = cv.cvtColor(image, cv.COLOR_RGB2BGR)
 else:
-    image = ((data - data.min()) / (data.max() - data.min()) * 255).astype("uint8")
+    plt.imsave("./results/original.png", data_norm, cmap="gray")
+    image = (data_norm * 255).astype("uint8")
 
-# étape A : Création du masque de détection
+##### Phase 1 : Érosion de l'image complète
+# On réduit légèrement l'intensité de tous les points brillants
+kernel_img = np.ones((IMAGE_EROSION_SIZE, IMAGE_EROSION_SIZE), np.uint8)
+image_eroded_step1 = cv.erode(image, kernel_img, iterations=IMAGE_EROSION_ITER)
+
+## étape A : Création et nettoyage du masque d'étoiles
 gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY) if image.ndim == 3 else image
 mask = cv.adaptiveThreshold(
     gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, MASK_BLOCK, MASK_C
 )
 
-# On dilate un peu le masque pour être sûr de couvrir TOUT le halo des étoiles
-kernel_dilate = np.ones((3, 3), np.uint8)
-mask_dilated = cv.dilate(mask, kernel_dilate, iterations=MASK_DILATE_ITER)
+# Opening pour supprimer le bruit parasite du masque
+kernel_m = np.ones((OPENING_KERNEL_SIZE, OPENING_KERNEL_SIZE), np.uint8)
+mask_cleaned = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel_m)
 
-# phase 1 : Inpainting (L'amélioration de l'eroded)
-# Cette méthode remplace les étoiles par la texture du ciel voisin
-print("Calcul de l'Inpainting (cela peut prendre quelques secondes)...")
-eroded_inpainted = cv.inpaint(image, mask_dilated, INPAINT_RADIUS, cv.INPAINT_TELEA)
+# Dilatation pour englober les halos autour des étoiles
+mask_dilated = cv.dilate(mask_cleaned, kernel_m, iterations=MASK_DILATE_ITER)
 
-# 2. Résultat : ERODED (Ici, on ne voit quasiment plus que la galaxie, mais un peu flou, avec un reste des étoiles larges)
-cv.imwrite("./results/eroded.png", eroded_inpainted)
+#### PHASE 2 : Inpainting (Restauration pour l'image ERODED)
+# Création d'une image où les étoiles sont totalement supprimées
+print("Calcul de l'Inpainting...")
+eroded_final = cv.inpaint(
+    image_eroded_step1, mask_dilated, INPAINT_RADIUS, cv.INPAINT_TELEA
+)
 
-# phase 2/3 : Fusion Finale
-# Floutage pour la transition
+# Sauvegarde du résultat intermédiaire (Zéro étoiles)
+cv.imwrite("./results/eroded.png", eroded_final)
+
+##### Phase 3 : Fusion Finale (Alpha Blending pour réduction)
+# Adoucissement des bords du masque pour une fusion naturelle
 mask_blurred = cv.GaussianBlur(mask_dilated, (BLUR_SIZE, BLUR_SIZE), 0)
 M = mask_blurred.astype(np.float32) / 255.0
 
 if image.ndim == 3:
     M = np.stack([M] * 3, axis=-1)
 
+# Passage en flottant pour les calculs de fusion
 Ioriginal = image.astype(np.float32)
-Ieroded = eroded_inpainted.astype(np.float32)
+Ieroded = eroded_final.astype(np.float32)
 
-# Fusion : on garde l'original partout, sauf là où il y avait des étoiles
-final_image_float = (M * Ieroded) + ((1.0 - M) * Ioriginal)
+# Application de la réduction (Compromis entre l'original et le vide)
+# Formule : M * Force * Image_Vide + (1 - M * Force) * Image_Originale
+final_image_float = (M * REDUCTION_ALPHA * Ieroded) + (
+    1.0 - (M * REDUCTION_ALPHA)
+) * Ioriginal
 final_image = np.clip(final_image_float, 0, 255).astype(np.uint8)
 
-# Sauvegardes
-plt.imsave(
-    "./results/original.png",
-    cv.cvtColor(image, cv.COLOR_BGR2RGB) if image.ndim == 3 else image,
-    cmap="gray",
-)
+# 4. Sauvegardes finales des résultats
 cv.imwrite("./results/star_mask.png", mask_dilated)
 cv.imwrite("./results/final_phase3.png", final_image)
 
 hdul.close()
-print("Terminé !")
+print("Terminé ! Les 4 fichiers sont disponibles dans le dossier ./results/")
