@@ -45,17 +45,23 @@ pip install -r requirements.txt
 
 ## Utilisation
 
-Pour lancer l'interface graphique :
+Pour lancer l'application avec le menu d'accueil :
 
 ```powershell
 # Assurez-vous que votre environnement virtuel est activé
-python gui_star_reduction.py
+python launcher.py
 ```
 
-Par défaut, l'application charge l'image `examples/m31_star.fits`. Une fois l'interface lancée, vous verrez l'image traitée au centre et un panneau de contrôle sur la droite.
+L'écran d'accueil vous propose deux modes :
 
-### Instructions
+1.  **Mode Temps Réel** : L'interface de reduction interactive (décrite ci-dessous).
+2.  **Mode Comparaison** : (À venir).
+
+Par défaut, en mode temps réel, l'application charge l'image `examples/m31_star.fits`.
+
+### Instructions (Mode Temps Réel)
 1. **Visualisation** : L'image affichée est le résultat du traitement en temps réel.
+
 2. **Ajustement** : Déplacez les curseurs (sliders) dans le panneau de droite. Chaque modification relance le calcul et met à jour l'image instantanément.
 3. **Workflow recommandé** :
    - Commencez par ajuster **"Taille de bloc seuil"** et **"Constante seuil"** pour isoler correctement les étoiles (le masque).
