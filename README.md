@@ -10,11 +10,23 @@
 
 - PACE--BOULNOIS Lysandre (NovaChocolat)
 
+## Fonctionnalités
+- **Lecture de fichiers FITS** : Support des images monochromes et couleurs (RGB).
+- **Interface Graphique (GUI)** : Basée sur PyQt6, elle permet de visualiser instantanément l'effet des réglages.
+- **Algorithme de réduction** :
+  1. **Érosion** : Crée une version "sans étoiles" de l'image.
+  2. **Masquage** : Détecte les étoiles via un seuillage adaptatif.
+  3. **Fusion** : Mélange l'image érodée (sur les étoiles) et l'image originale (sur le fond du ciel) pour un rendu naturel.
+
 ## Installation
 
-### Virtual Environment
+### Pré-requis
+Une installation standard de Python (3.10 ou plus récent) sous Windows est recommandée.
 
-It is recommended to create a virtual environment before installing dependencies:
+> **Note** : Évitez d'utiliser le Python fourni par MSYS2/MinGW, car il peut poser des problèmes de compatibilité avec les bibliothèques graphiques comme PyQt6 ou OpenCV.
+
+### Configuration
+Il est fortement conseillé d'utiliser un environnement virtuel :
 
 ```bash
 python -m venv venv
@@ -31,19 +43,38 @@ pip install -r requirements.txt
 pip install -r requirements.txt
 ```
 
-Or install dependencies manually:
+## Utilisation
 
-```bash
-pip install [package-name]
+Pour lancer l'application avec le menu d'accueil :
+
+```powershell
+# Assurez-vous que votre environnement virtuel est activé
+python launcher.py
 ```
 
-## Usage
+L'écran d'accueil vous propose deux modes :
 
-### Command Line
+1.  **Mode Temps Réel** : L'interface de reduction interactive (décrite ci-dessous).
+2.  **Mode Comparaison** : (À venir).
 
-```bash
-python main.py [arguments]
-```
+Par défaut, en mode temps réel, l'application charge l'image `examples/m31_star.fits`.
+
+### Instructions (Mode Temps Réel)
+1. **Visualisation** : L'image affichée est le résultat du traitement en temps réel.
+
+2. **Ajustement** : Déplacez les curseurs (sliders) dans le panneau de droite. Chaque modification relance le calcul et met à jour l'image instantanément.
+3. **Workflow recommandé** :
+   - Commencez par ajuster **"Taille de bloc seuil"** et **"Constante seuil"** pour isoler correctement les étoiles (le masque).
+   - Augmentez **"Flou du masque"** pour rendre la transition autour des étoiles invisible.
+   - Enfin, réglez l'**"Érosion"** pour déterminer à quel point les étoiles doivent être réduites/effacées.
+
+### Paramètres disponibles
+- **Taille du noyau d'érosion** : Définit la force de la réduction brute des étoiles.
+- **Itérations d'érosion** : Nombre de passes d'érosion (réduit davantage les grosses étoiles).
+- **Taille de bloc seuil** : Ajuste la sensibilité de la détection des étoiles (zones locales).
+- **Constante seuil (C)** : Affine la détection (valeur plus faible = plus d'étoiles détectées).
+- **Flou du masque** : Adoucit les bords du masque pour éviter les artefacts de coupure autour des étoiles.
+
 
 ## Requirements
 

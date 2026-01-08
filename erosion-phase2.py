@@ -13,9 +13,20 @@ import numpy as np
 # =================================================================
 # VARIABLES DE CONFIGURATION
 # =================================================================
-FITS_FILE = "./examples/m31_star.fits"
+import sys
+if len(sys.argv) > 1:
+    FITS_FILE = sys.argv[1]
+else:
+    print("Veuillez choisir une image FITS.")
+    # On utilise input pour demander le fichier si non fourni
+    user_file = input("Entrez le chemin du fichier FITS (par défaut ./examples/m31_star.fits) : ").strip()
+    if user_file:
+        FITS_FILE = user_file
+    else:
+        FITS_FILE = "./examples/m31_star.fits"
 
 # Paramètres Érosion
+
 EROSION_SIZE = 3  # Taille du noyau (3x3, 5x5, etc.)
 EROSION_ITER = 4  # Nombre de fois qu'on érode (plus = étoiles plus petites)
 
