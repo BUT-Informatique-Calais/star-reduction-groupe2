@@ -1,6 +1,20 @@
+Oral théorique du 09/01/2026
+
+* Slide 1 : 
+
+Louis : Code entier phase 1/2 + code Opening + mise en forme diapo
+
+Lysandre : Interface graphique entière 
+
+Jules : Recherches + diapo
+
+
 Recherches :
 
+
 * Piste personnelle (slide 2) :
+(Jules)
+
 
 - Recherches Threshold, substitut à DAOStarFinder, seuils etc... via la documentation OpenCV 
 Threshold -> set un seuil entre 0 et 255, pour chaque pixel : analyse si sa valeur est supérieure ou inférieure au seuil. Inférieure : pixel = 0 et supérieure = 255. Pas la meilleure utilisation dans notre cas… Mais : Adaptative Threshold intéressant. 
@@ -10,9 +24,18 @@ Utilisation de l'adaptative Threshold, analyse les pixels AUTOUR du pixel en que
 "Useful for removing small objects (it is assumed that the objects are bright on a dark foreground)" = utile pour retirer des petits objets (implique que les objets soient clairs dans un fond sombre) -> exactement la situation des étoiles trop brillantes dans une photo.
 
 - Recherches Astrometry.net, utile pour faire un masque d'étoile bon car utilise un algorithme et une base de donnée pour identifier les étoiles présentes dans une photo. Permet donc de les isoler précisément et donc d'obtenir un masque proche de la réalité.
-s'utilise avec Linux (ou Windows WSL) et c'est une API.  
+s'utilise avec Linux (ou Windows WSL) et c'est une API.
+
+- Recherches Scikit images (SSIM et MSE), utile pour visualiser les différences d'une image via des indices : SSIM (Structural Similarity Index Measure) et le MSE (Mean-Squarred Error). De ces deux indices, le plus fiable reste le SSIM, car il prend en compte les variations subtiles d'une image comme les textures, la couleur etc, les deux restent cependant utile d'utilisation. 
+skimage.metrics.structural_similarity(im1, im2) -> commande pour obtenir le SSIM entre deux images. On recherche à avoir un SSIM le + haut possible (vers 1)
+skimage.metrics.mean_squared_error(image0, image1) -> commande pour obtenir le MSE entre deux images, On cherche à avoir un MSE le + bas possible (vers 0)
+from skimage.metrics import structural_similarity as ssim -> pour importer le SSIM 
+from skimage.metrics import mean_squared_error -> pour importer le MSE
+
 
 * Problèmes/Solutions (slide 3/4) :
+(Louis)
+
 
 - Savoir équilibrer les paramètres, voir pour l'érosion : soit être flou sans étoile, soit être nette avec quelques étoiles restantes
 	-> Rechercher meilleure méthode pour combiner netteté et aucune étoile (Opening dans OpenCV)
@@ -20,14 +43,18 @@ s'utilise avec Linux (ou Windows WSL) et c'est une API.
 - Télétravail (collègue + mercredi) car on préfère travailler en présentiel
 	-> Adaptation 
 
-- Manque de connaissance concernant bibliothèque photutils (peut-être se renseigner si ça pose problème)
+- Manque de connaissance concernant bibliothèque photutils
+	-> Utilisation de Threshold pour rester sur la documentation d'opencv
 
 - Opening donne un star masque ne contenant pas chaque étoile… uniquement celles bien visibles.
 	-> Astrometry.net qui doit donner un masque meilleur
 
-- Voir possibilité d'afficher image starless avec Opening ET star mask avec API astrometry. Pour avoir les meilleurs affichages en même temps au niveau de l'image starless et le star mask.
+(- Voir possibilité de comparer des images précises, par exemples comparer le star mask sous Erosion et sous Opening.)
+
 
 * Résultats (slide 5/6) :
+(Lysandre)
+
 
 - 4 images à afficher avec noms :
 	* Original
@@ -42,6 +69,8 @@ s'utilise avec Linux (ou Windows WSL) et c'est une API.
 - Interface utilisateur (pyqt6)
 
 - Commentaire et readme en anglais
+
+
 
 
 
