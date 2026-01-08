@@ -9,7 +9,7 @@ import sys
 import cv2 as cv
 import numpy as np
 from astropy.io import fits
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QGroupBox)
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QGroupBox, QFileDialog, QMessageBox, QPushButton)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
 
@@ -107,6 +107,8 @@ class StarView(QMainWindow):
     # Signal emitted when any parameter changes
     # Carries a dictionary of all current parameter values
     parameters_changed = pyqtSignal(dict)
+    # Signal emitted when returning to launcher
+    return_to_launcher = pyqtSignal()
 
     def __init__(self):
         super().__init__()
@@ -145,6 +147,12 @@ class StarView(QMainWindow):
         
         self.controls_layout.addStretch()
 
+        # Bouton Retour
+        self.btn_back = QPushButton("Retour au menu")
+        self.btn_back.setStyleSheet("background-color: #666; color: white; padding: 5px;")
+        self.btn_back.clicked.connect(self.on_back_click)
+        self.controls_layout.addWidget(self.btn_back)
+
     # Add a single control (label + slider)
     def add_control(self, label_text, min_val, max_val, default_val, step, key):
         layout = QVBoxLayout()
@@ -164,6 +172,10 @@ class StarView(QMainWindow):
         layout.addWidget(label)
         layout.addWidget(slider)
         self.controls_layout.addLayout(layout)
+
+    def on_back_click(self):
+        self.return_to_launcher.emit()
+        self.close()
 
     def on_slider_change(self, value, key):
         # Enforce odd numbers for specific kernels
@@ -217,10 +229,24 @@ class StarController:
         self.view.parameters_changed.connect(self.update_model)
 
         # Initial load
-        self.model.load_fits_data("./examples/m31_star.fits")
-        
-        # Trigger initial update
-        self.view.emit_parameters()
+        self.load_image()
+
+    def load_image(self):
+        filepath, _ = QFileDialog.getOpenFileName(
+            self.view,
+            "Ouvrir une image FITS", 
+            "./examples", 
+            "FITS Files (*.fits *.fit)"
+        )
+
+        if filepath:
+            self.model.load_fits_data(filepath)
+            # Trigger initial update
+            self.view.emit_parameters()
+        else:
+            # User canceled, close app
+            sys.exit(0)
+
 
     def update_model(self, params):
         # Process image with new params

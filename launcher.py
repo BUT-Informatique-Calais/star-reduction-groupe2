@@ -2,6 +2,7 @@ import sys
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QPushButton, QLabel, QMessageBox, QSpacerItem, QSizePolicy)
 from PyQt6.QtCore import Qt
 from gui_star_reduction import StarModel, StarView, StarController
+from gui_comparison import ComparisonView
 
 class Launcher(QWidget):
     def __init__(self):
@@ -51,12 +52,18 @@ class Launcher(QWidget):
         self.view = StarView()
         self.controller = StarController(self.model, self.view)
         
+        # Connect return signal
+        self.view.return_to_launcher.connect(self.show)
+
         # Show main window and close launcher
         self.view.show()
         self.close()
 
     def launch_comparison(self):
-        QMessageBox.information(self, "Information", "Le mode comparaison sera disponible prochainement.")
+        self.comp_view = ComparisonView()
+        self.comp_view.return_to_launcher.connect(self.show)
+        self.comp_view.show()
+        self.close()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
