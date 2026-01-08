@@ -28,11 +28,21 @@ import matplotlib.pyplot as plt
 import cv2 as cv
 import numpy as np
 import os
+import sys
 
 # =================================================================
 # CONFIGURATION VARIABLES
 # =================================================================
-FITS_FILE = "examples/m31_star.fits"
+if len(sys.argv) > 1:
+    FITS_FILE = sys.argv[1]
+else:
+    print("Veuillez choisir une image FITS.")
+    # Use input to ask for file if not provided
+    user_file = input("Entrez le chemin du fichier FITS (par défaut ./examples/m31_star.fits) : ").strip()
+    if user_file:
+        FITS_FILE = user_file
+    else:
+        FITS_FILE = "./examples/m31_star.fits"
 
 # Preventive erosion settings (lower peaks of light)
 IMAGE_EROSION_SIZE = 3  # 3x3 zone
@@ -45,7 +55,7 @@ OPENING_KERNEL_SIZE = 3  # Mask cleaning
 MASK_DILATE_ITER = 3  # Orange/white halos cover
 
 # Inpainting & Final Rendering settings :
-INPAINT_RADIUS = 5  # Rayon de reconstruction
+INPAINT_RADIUS = 5  # Reconstruction radius
 REDUCTION_ALPHA = 0.6  # Reduction intensity (0.6 = 60% star reduction)
 BLUR_SIZE = 15  # Transition blur (for fusion)
 # =================================================================
@@ -59,8 +69,9 @@ hdul = fits.open(FITS_FILE)
 data = hdul[0].data
 
 # 3. Preparation and save ORIGINAL image
-# Normalization of FITS sata (0.0 to 1.0)
+# Normalization of FITS data (0.0 to 1.0)
 data_norm = (data - data.min()) / (data.max() - data.min())
+
 
 if data.ndim == 3:
     if data.shape[0] == 3:  # adjusting axes if needed
@@ -88,7 +99,7 @@ mask = cv.adaptiveThreshold(
 kernel_m = np.ones((OPENING_KERNEL_SIZE, OPENING_KERNEL_SIZE), np.uint8)
 mask_cleaned = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel_m)
 
-# Dilating to encompass halos aorund the stars
+# Dilating to encompass halos around the stars
 mask_dilated = cv.dilate(mask_cleaned, kernel_m, iterations=MASK_DILATE_ITER)
 
 #### PHASE 2 : Inpainting (Restoration for the ERODED image)
@@ -98,7 +109,7 @@ eroded_final = cv.inpaint(
     image_eroded_step1, mask_dilated, INPAINT_RADIUS, cv.INPAINT_TELEA
 )
 
-# Sauving intermediate results (0 stars)
+# Saving intermediate results (0 stars)
 cv.imwrite("./results/eroded.png", eroded_final)
 
 ##### Phase 3 : Final Fusion (Alpha Blending for reduction)
@@ -114,7 +125,7 @@ Ioriginal = image.astype(np.float32)
 Ieroded = eroded_final.astype(np.float32)
 
 # Reduction application (Compromise between the original and the empty)
-# Formula : M * strenght * Empty_Image + (1 - M * Strenght) * Beginning_Image
+# Formula : M * strength * Empty_Image + (1 - M * Strength) * Beginning_Image
 final_image_float = (M * REDUCTION_ALPHA * Ieroded) + (
     1.0 - (M * REDUCTION_ALPHA)
 ) * Ioriginal

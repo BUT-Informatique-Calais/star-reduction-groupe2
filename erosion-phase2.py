@@ -11,31 +11,31 @@ import cv2 as cv
 import numpy as np
 
 # =================================================================
-# VARIABLES DE CONFIGURATION
+# CONFIGURATION VARIABLES
 # =================================================================
 import sys
 if len(sys.argv) > 1:
     FITS_FILE = sys.argv[1]
 else:
     print("Veuillez choisir une image FITS.")
-    # On utilise input pour demander le fichier si non fourni
+    # Use input to ask for file if not provided
     user_file = input("Entrez le chemin du fichier FITS (par défaut ./examples/m31_star.fits) : ").strip()
     if user_file:
         FITS_FILE = user_file
     else:
         FITS_FILE = "./examples/m31_star.fits"
 
-# Paramètres Érosion
+# Erosion Parameters
 
-EROSION_SIZE = 3  # Taille du noyau (3x3, 5x5, etc.)
-EROSION_ITER = 4  # Nombre de fois qu'on érode (plus = étoiles plus petites)
+EROSION_SIZE = 3  # Kernel size (3x3, 5x5, etc.)
+EROSION_ITER = 4  # Number of erosion iterations (more = smaller stars)
 
-# Paramètres Masque (étape A)
-MASK_BLOCK_SIZE = 21  # Taille du voisinage (doit être impair : 11, 21, 31...)
-MASK_C_VALUE = -10  # Constante C (plus c'est bas, plus on détecte d'étoiles)
+# Mask Parameters (Step A)
+MASK_BLOCK_SIZE = 21  # Neighborhood size (must be odd: 11, 21, 31...)
+MASK_C_VALUE = -10  # Constant C (lower value = more stars detected)
 
-# Paramètres Flou (étape B)
-BLUR_SIZE = 15  # Douceur de la transition (doit être impair : 5, 9, 15...)
+# Blur Parameters (Step B)
+BLUR_SIZE = 15  # Softness of the transition (must be odd: 5, 9, 15...)
 # =================================================================
 
 # Open and read the FITS file
@@ -63,10 +63,10 @@ if data.ndim == 3:
     # Save the data as a png image (no cmap for color images)
     plt.imsave("./results/original.png", data_normalized)
 
-    # Normalisation globale pour préserver les couleurs
+    # Global normalization to preserve colors
     image = ((data - data.min()) / (data.max() - data.min()) * 255).astype("uint8")
 
-    # Conversion RGB vers BGR pour OpenCV
+    # RGB to BGR conversion for OpenCV
     image = cv.cvtColor(image, cv.COLOR_RGB2BGR)
 else:
     # Monochrome image
@@ -81,46 +81,46 @@ kernel = np.ones((EROSION_SIZE, EROSION_SIZE), np.uint8)
 eroded_image = cv.erode(image, kernel, iterations=EROSION_ITER)
 
 
-###### Phase 2 :
+###### Phase 2:
 
 
-### Étape A : Création du masque d’étoiles
+### Step A: Create Star Mask
 if len(image.shape) == 3:
     gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
 else:
     gray = image
 
-# Seuil
+# Threshold
 mask = cv.adaptiveThreshold(
     gray,
     255,
     cv.ADAPTIVE_THRESH_GAUSSIAN_C,
     cv.THRESH_BINARY,
-    MASK_BLOCK_SIZE,  # la taille du voisinage (ex: 21x21)
-    MASK_C_VALUE,  # Garde uniquement les pixels nettement plus brillants que la moyenne
+    MASK_BLOCK_SIZE,  # Neighborhood size (e.g. 21x21)
+    MASK_C_VALUE,  # Keep only pixels significantly brighter than average
 )
 
-### Étape B : Réduction localisée
-# Masque flouté réalisé avec le noyau de Gauss
+### Step B: Localized Reduction
+# Blurred mask using Gaussian kernel
 mask_blurred = cv.GaussianBlur(mask, (BLUR_SIZE, BLUR_SIZE), 0)
 
-# Utilisation de float32 pour éviter les erreurs de profondeur d'image
+# Use float32 to avoid image depth errors
 M = mask_blurred.astype(np.float32) / 255.0
 
 if len(image.shape) == 3:
     M = np.stack([M, M, M], axis=2)
 
-# Conversion explicite en float32 pour le calcul
+# Explicit conversion to float32 for calculation
 Ioriginal = image.astype(np.float32)
 Ierode = eroded_image.astype(np.float32)
 
-# Calcul de l'image finale
+# Calculate final image
 final_image_float = (M * Ierode) + ((1.0 - M) * Ioriginal)
 
-# Reconversion en uint8 AVANT la sauvegarde pour éviter les Warnings
+# Reconvert to uint8 BEFORE saving to avoid warnings
 final_image = np.clip(final_image_float, 0, 255).astype(np.uint8)
 
-### Sauvegardes finales
+### Final saves
 cv.imwrite("./results/eroded.png", eroded_image)
 cv.imwrite("./results/final_phase2.png", final_image)
 cv.imwrite("./results/star_mask.png", mask)

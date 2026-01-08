@@ -9,7 +9,7 @@ import sys
 import cv2 as cv
 import numpy as np
 from astropy.io import fits
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QGroupBox, QFileDialog, QMessageBox, QPushButton)
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QGroupBox, QFileDialog, QPushButton)
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QImage, QPixmap
 
@@ -56,45 +56,64 @@ class StarModel:
             return None
 
         try:
-            k_erosion = params['erosion_kernel']
-            iter_erosion = params['erosion_iter']
-            block_size = params['thresh_block']
-            c_val = params['thresh_c']
-            k_blur = params['blur_kernel']
+            # Extract Phase 3 parameters
+            k_erosion = params.get('erosion_kernel', 3)
+            iter_erosion = params.get('erosion_iter', 1)
+            
+            block_size = params.get('thresh_block', 31)
+            c_val = params.get('thresh_c', -2)
+            
+            k_opening = params.get('opening_kernel', 3)
+            iter_dilate = params.get('dilate_iter', 3)
+            
+            inpaint_radius = params.get('inpaint_radius', 5)
+            # Alpha is a percentage (0-100) in the interface, convert to 0.0-1.0
+            alpha = params.get('reduction_alpha', 60) / 100.0
+            
+            k_blur = params.get('blur_kernel', 15)
 
-            # Define a kernel for erosion
-            kernel = np.ones((k_erosion, k_erosion), np.uint8)
-            # Perform erosion
-            eroded_image = cv.erode(self.original_image, kernel, iterations=iter_erosion)
+            # 1. Preventive Erosion (diminishes light peaks)
+            kernel_img = np.ones((k_erosion, k_erosion), np.uint8)
+            image_eroded = cv.erode(self.original_image, kernel_img, iterations=iter_erosion)
 
-            ###### Phase 2 :
-
-            ### Step A: Create star mask
+            # 2. Star Mask Creation (Detection)
             mask = cv.adaptiveThreshold(
                 self.gray_image, 
                 255, 
                 cv.ADAPTIVE_THRESH_GAUSSIAN_C, 
                 cv.THRESH_BINARY, 
                 block_size, 
-                c_val # Keep only pixels significantly brighter than the average
+                c_val
             )
 
-            ### Step B: Localized reduction
-            # Blurred mask created with Gaussian kernel
-            mask_blurred = cv.GaussianBlur(mask, (k_blur, k_blur), 0)
+            # 3. Mask Cleaning (Morphological Opening)
+            kernel_m = np.ones((k_opening, k_opening), np.uint8)
+            mask_cleaned = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel_m)
 
-            # Use float32 to avoid image depth errors
+            # 4. Mask Expansion (Dilation to cover halos)
+            mask_dilated = cv.dilate(mask_cleaned, kernel_m, iterations=iter_dilate)
+
+            # 5. Inpainting (Smart reconstruction of masked areas on the eroded image)
+            # Note: inpaint expects an 8-bit image
+            inpainted_image = cv.inpaint(image_eroded, mask_dilated, inpaint_radius, cv.INPAINT_TELEA)
+
+            # 6. Final Fusion (Alpha Blending)
+            # Soften mask edges for smooth transition
+            mask_blurred = cv.GaussianBlur(mask_dilated, (k_blur, k_blur), 0)
+
+            # Convert mask to float (0.0 - 1.0)
             M = mask_blurred.astype(np.float32) / 255.0
             if len(self.original_image.shape) == 3:
-                M = np.stack([M, M, M], axis=2)
+                M = np.stack([M] * 3, axis=-1)
 
-            # Explicit conversion to float32 for calculation
             Ioriginal = self.original_image.astype(np.float32)
-            Ierode = eroded_image.astype(np.float32)
+            Iinpainted = inpainted_image.astype(np.float32)
 
-            # Calculation of the final image
-            final_image_float = (M * Ierode) + ((1.0 - M) * Ioriginal)
-            # Conversion back to uint8 BEFORE saving to avoid Warnings
+            # Phase 3 Fusion Formula:
+            # Weighted mix between original image and "repaired" (inpainted) image
+            final_image_float = (M * alpha * Iinpainted) + (1.0 - (M * alpha)) * Ioriginal
+            
+            # Final conversion to uint8
             final_image = np.clip(final_image_float, 0, 255).astype(np.uint8)
 
             return final_image
@@ -139,15 +158,28 @@ class StarView(QMainWindow):
 
     # Create sliders and labels for parameters
     def create_controls(self):
-        self.add_control("Taille du noyau d'érosion (impair)", 3, 51, 3, 2, "erosion_kernel")
-        self.add_control("Itérations d'érosion", 1, 30, 4, 1, "erosion_iter")
-        self.add_control("Taille de bloc seuil (impair)", 3, 251, 21, 2, "thresh_block")
-        self.add_control("Constante seuil (C)", -100, 100, -10, 1, "thresh_c")
-        self.add_control("Flou du masque (impair)", 1, 151, 15, 2, "blur_kernel")
+        # 1. Preventive Erosion
+        self.add_control("Pré-Erosion: Taille Noyau", 3, 15, 3, 2, "erosion_kernel")
+        self.add_control("Pré-Erosion: Itérations", 0, 10, 1, 1, "erosion_iter")
+        
+        # 2. Detection (Mask)
+        self.add_control("Masque: Seuil Bloc (impair)", 3, 251, 31, 2, "thresh_block")
+        self.add_control("Masque: Constante C", -50, 50, -2, 1, "thresh_c")
+        
+        # 3. Cleaning & Dilation
+        self.add_control("Masque: Nettoyage (Ouverture)", 3, 21, 3, 2, "opening_kernel")
+        self.add_control("Masque: Dilatation (Halos)", 0, 20, 3, 1, "dilate_iter")
+
+        # 4. Inpainting
+        self.add_control("Inpainting: Rayon", 1, 20, 5, 1, "inpaint_radius")
+        
+        # 5. Fusion
+        self.add_control("Fusion: Intensité Reduction (%)", 0, 100, 60, 5, "reduction_alpha")
+        self.add_control("Fusion: Flou Transition", 3, 101, 15, 2, "blur_kernel")
         
         self.controls_layout.addStretch()
 
-        # Bouton Retour
+        # Back button
         self.btn_back = QPushButton("Retour au menu")
         self.btn_back.setStyleSheet("background-color: #666; color: white; padding: 5px;")
         self.btn_back.clicked.connect(self.on_back_click)
@@ -179,7 +211,7 @@ class StarView(QMainWindow):
 
     def on_slider_change(self, value, key):
         # Enforce odd numbers for specific kernels
-        if key in ["erosion_kernel", "thresh_block", "blur_kernel"]:
+        if key in ["erosion_kernel", "thresh_block", "blur_kernel", "opening_kernel"]:
             if value % 2 == 0:
                 value += 1
                 self.sliders[key].blockSignals(True) # Prevent recursive call
