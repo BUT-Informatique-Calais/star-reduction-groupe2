@@ -55,7 +55,7 @@ Pour lancer l'application avec le menu d'accueil :
 python launcher.py
 ```
 
-Ou vous avez un exécutable dans le dossier dist.
+Ou vous avez un exécutable dans l'espace "releases" sur GitHub.
 
 L'écran d'accueil vous propose trois modes :
 

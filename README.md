@@ -55,7 +55,7 @@ To launch the Application with the home menu :
 python launcher.py
 ```
 
-Or there is an executable in the folder dist.
+Or there is an executable in the release section on GitHub.
 
 The home screen has three modes :
 
