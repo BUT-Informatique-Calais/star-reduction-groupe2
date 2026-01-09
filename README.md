@@ -60,7 +60,7 @@ Or there is an executable in the release section on GitHub.
 The home screen has three modes :
 
 1.  **Real Time Mode** : Interactive reduction of the interface (described below).
-2.  **Comparison Mode** : Allows to compare two images with MSE, SSIM and a differential cloud.
+2.  **Comparison Mode** : Allows to compare two images with [MSE](https://scikit-image.org/docs/0.25.x/api/skimage.metrics.html#skimage.metrics.mean_squared_error), [SSIM](https://scikit-image.org/docs/0.25.x/api/skimage.metrics.html#skimage.metrics.structural_similarity) and a differential cloud.
 3.  **Generate Images (Batch)** : Generate the following images in the wanted directory : 'original.png', 'star_mask.png', 'eroded.png' et 'final_phase3.png'
 
 ### Instructions (Real Time Mode)

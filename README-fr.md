@@ -60,7 +60,7 @@ Ou vous avez un exécutable dans l'espace "releases" sur GitHub.
 L'écran d'accueil vous propose trois modes :
 
 1.  **Mode Temps Réel** : L'interface de réduction interactive (décrite ci-dessous).
-2.  **Mode Comparaison** : Permet de comparer deux images grâce au MSE, SSIM et à un nuage différentiel.
+2.  **Mode Comparaison** : Permet de comparer deux images grâce au [MSE](https://scikit-image.org/docs/0.25.x/api/skimage.metrics.html#skimage.metrics.mean_squared_error), [SSIM](https://scikit-image.org/docs/0.25.x/api/skimage.metrics.html#skimage.metrics.structural_similarity) et à un nuage différentiel.
 3.  **Générer Images (Batch)** : Génère les images suivantes dans le dossier souhaité : 'original.png', 'star_mask.png', 'eroded.png' et 'final_phase3.png'
 
 ### Instructions (Mode Temps Réel)
