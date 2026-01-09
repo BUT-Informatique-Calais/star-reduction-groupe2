@@ -40,7 +40,7 @@ Il est fortement conseillé d'utiliser un environnement virtuel :
 ```bash
 python -m venv venv
 source venv/bin/activate
-# On Windows:
+# Sur Windows:
 # Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
 # venv\Scripts\activate
 pip install -r requirements.txt
@@ -55,7 +55,9 @@ Pour lancer l'application avec le menu d'accueil :
 python launcher.py
 ```
 
-L'écran d'accueil vous propose deux modes :
+Ou vous avez un exécutable dans le dossier dist.
+
+L'écran d'accueil vous propose trois modes :
 
 1.  **Mode Temps Réel** : L'interface de réduction interactive (décrite ci-dessous).
 2.  **Mode Comparaison** : Permet de comparer deux images grâce au MSE, SSIM et à un nuage différentiel.
