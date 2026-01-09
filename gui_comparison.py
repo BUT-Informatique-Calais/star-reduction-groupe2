@@ -116,7 +116,7 @@ class ComparisonView(QMainWindow):
         self.btn_load_orig.clicked.connect(self.load_original)
         controls_layout.addWidget(self.btn_load_orig)
 
-        self.btn_load_proc = QPushButton("2. Charger Érodée")
+        self.btn_load_proc = QPushButton("2. Charger Modifiée")
         self.btn_load_proc.clicked.connect(self.load_processed)
         controls_layout.addWidget(self.btn_load_proc)
 
@@ -144,7 +144,7 @@ class ComparisonView(QMainWindow):
 
         # Right Column (Processed)
         self.col_proc = QVBoxLayout()
-        self.label_proc = QLabel("Image Érodée")
+        self.label_proc = QLabel("Image Modifiée")
         self.label_proc.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.label_proc.setStyleSheet("border: 1px solid #ccc; background-color: black; color: white;")
         self.col_proc.addWidget(self.label_proc)

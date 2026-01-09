@@ -10,7 +10,7 @@ import cv2 as cv
 import numpy as np
 from astropy.io import fits
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QGroupBox, QFileDialog, QPushButton)
-from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal, QTimer
 from PyQt6.QtGui import QImage, QPixmap
 
 # --- Model ---
@@ -57,9 +57,6 @@ class StarModel:
 
         try:
             # Extract Phase 3 parameters
-            k_erosion = params.get('erosion_kernel', 3)
-            iter_erosion = params.get('erosion_iter', 1)
-            
             block_size = params.get('thresh_block', 31)
             c_val = params.get('thresh_c', -2)
             
@@ -72,11 +69,7 @@ class StarModel:
             
             k_blur = params.get('blur_kernel', 15)
 
-            # 1. Preventive Erosion (diminishes light peaks)
-            kernel_img = np.ones((k_erosion, k_erosion), np.uint8)
-            image_eroded = cv.erode(self.original_image, kernel_img, iterations=iter_erosion)
-
-            # 2. Star Mask Creation (Detection)
+            # 1. Star Mask Creation (Detection)
             mask = cv.adaptiveThreshold(
                 self.gray_image, 
                 255, 
@@ -86,18 +79,18 @@ class StarModel:
                 c_val
             )
 
-            # 3. Mask Cleaning (Morphological Opening)
+            # 2. Mask Cleaning (Morphological Opening)
             kernel_m = np.ones((k_opening, k_opening), np.uint8)
             mask_cleaned = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel_m)
 
-            # 4. Mask Expansion (Dilation to cover halos)
+            # 3. Mask Expansion (Dilation to cover halos)
             mask_dilated = cv.dilate(mask_cleaned, kernel_m, iterations=iter_dilate)
 
-            # 5. Inpainting (Smart reconstruction of masked areas on the eroded image)
+            # 4. Inpainting (Smart reconstruction of masked areas using original image)
             # Note: inpaint expects an 8-bit image
-            inpainted_image = cv.inpaint(image_eroded, mask_dilated, inpaint_radius, cv.INPAINT_TELEA)
+            inpainted_image = cv.inpaint(self.original_image, mask_dilated, inpaint_radius, cv.INPAINT_TELEA)
 
-            # 6. Final Fusion (Alpha Blending)
+            # 5. Final Fusion (Alpha Blending)
             # Soften mask edges for smooth transition
             mask_blurred = cv.GaussianBlur(mask_dilated, (k_blur, k_blur), 0)
 
@@ -154,26 +147,28 @@ class StarView(QMainWindow):
         self.sliders = {}
         self.labels = {}
 
+        # Timer for debounce (delay processing while sliding)
+        self.update_timer = QTimer()
+        self.update_timer.setSingleShot(True)
+        self.update_timer.setInterval(200) # 200ms delay
+        self.update_timer.timeout.connect(self.emit_parameters)
+
         self.create_controls()
 
     # Create sliders and labels for parameters
     def create_controls(self):
-        # 1. Preventive Erosion
-        self.add_control("Pré-Erosion: Taille Noyau", 3, 15, 3, 2, "erosion_kernel")
-        self.add_control("Pré-Erosion: Itérations", 0, 10, 1, 1, "erosion_iter")
-        
-        # 2. Detection (Mask)
+        # 1. Detection (Mask)
         self.add_control("Masque: Seuil Bloc (impair)", 3, 251, 31, 2, "thresh_block")
         self.add_control("Masque: Constante C", -50, 50, -2, 1, "thresh_c")
         
-        # 3. Cleaning & Dilation
+        # 2. Cleaning & Dilation
         self.add_control("Masque: Nettoyage (Ouverture)", 3, 21, 3, 2, "opening_kernel")
         self.add_control("Masque: Dilatation (Halos)", 0, 20, 3, 1, "dilate_iter")
 
-        # 4. Inpainting
+        # 3. Inpainting
         self.add_control("Inpainting: Rayon", 1, 20, 5, 1, "inpaint_radius")
         
-        # 5. Fusion
+        # 4. Fusion
         self.add_control("Fusion: Intensité Reduction (%)", 0, 100, 60, 5, "reduction_alpha")
         self.add_control("Fusion: Flou Transition", 3, 101, 15, 2, "blur_kernel")
         
@@ -211,7 +206,7 @@ class StarView(QMainWindow):
 
     def on_slider_change(self, value, key):
         # Enforce odd numbers for specific kernels
-        if key in ["erosion_kernel", "thresh_block", "blur_kernel", "opening_kernel"]:
+        if key in ["thresh_block", "blur_kernel", "opening_kernel"]:
             if value % 2 == 0:
                 value += 1
                 self.sliders[key].blockSignals(True) # Prevent recursive call
@@ -222,8 +217,9 @@ class StarView(QMainWindow):
         label_widget, base_text = self.labels[key]
         label_widget.setText(f"{base_text}: {value}")
 
-        # Emit parameters to controller
-        self.emit_parameters()
+        # Restart processing timer (Debounce)
+        # Only process when user stops moving slider for 200ms
+        self.update_timer.start()
 
     def emit_parameters(self):
         params = {key: slider.value() for key, slider in self.sliders.items()}
