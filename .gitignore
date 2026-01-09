@@ -2,4 +2,10 @@ venv
 .venv/
 .vscode/
 
+# Fichiers Python en cache
 __pycache__/
+
+# Espace pour le .exe
+build/
+dist/
+StarReduction.spec
